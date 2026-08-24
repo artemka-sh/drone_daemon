@@ -1,0 +1,3 @@
+deps/cpp-httplib/
+cmake-build-release/
+cmake-build-relwithdebinfo/

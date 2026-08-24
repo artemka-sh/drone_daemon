@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Vision Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Наш единственный скрипт, reader.js больше не нужен -->
+    <script defer src="app.js"></script>
+</head>
+<body>
+<div class="app-container">
+    <!-- Боковая панель управления со скрытием -->
+    <aside id="sidebar" class="sidebar">
+        <button id="toggle-sidebar" class="toggle-btn" title="Скрыть/Показать меню">◀</button>
+
+        <h2>Управление</h2>
+        <div class="controls-group">
+            <h3>Камеры</h3>
+            <div id="camera-toggles">
+                <!-- Галочки сгенерирует JS -->
+            </div>
+        </div>
+        <div class="hint">
+            <p>💡 <b>ЛКМ х 2</b> по камере — фокус</p>
+        </div>
+    </aside>
+
+    <!-- Главная область с умной сеткой -->
+    <main class="main-content">
+        <div id="video-grid" class="video-grid">
+            <!-- Сюда JS будет динамически вставлять видео -->
+        </div>
+    </main>
+</div>
+
+<!-- Полноэкранный режим одной камеры (Фокус) -->
+<div id="fullscreen-modal" class="modal hidden">
+    <button id="close-modal" class="close-btn">×</button>
+    <div id="fullscreen-container" class="modal-content"></div>
+</div>
+</body>
+</html>
