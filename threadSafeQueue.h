@@ -4,14 +4,16 @@
 
 #ifndef DRONE_DAEMON_THREADSAFEQUEUE_H
 #define DRONE_DAEMON_THREADSAFEQUEUE_H
+
 #include <condition_variable>
 #include <queue>
 #include <mutex>
 #include <thread>
-#include <print>
+#include <optional> // Обязательно для std::optional
+#include <chrono>   // Обязательно для std::chrono::milliseconds
+#include <iostream>
 
 
-//потокобезопасная очередь с лимитом
 template <typename T>
 class ThreadSafeQueue {
 public:
@@ -21,7 +23,7 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         if (queue_.size() >= maxSize_) {
             queue_.pop(); // Дропаем самый старый кадр
-            std::println("Внимание: Очередь переполнена, кадр отброшен.");
+            std::cerr << "Внимание: Очередь переполнена, кадр отброшен.\n";
         }
         queue_.push(std::move(item));
         cond_.notify_one();

@@ -7,6 +7,7 @@
 #include "analyzer.h"
 #include <print>
 #include <chrono>
+#include <filesystem>
 
 PipelineBuilder::PipelineBuilder() = default;
 
@@ -18,36 +19,40 @@ PipelineBuilder::~PipelineBuilder()
 void PipelineBuilder::run()
 {
 
-    std::vector<std::string> pipelines = {
-        // Пайплайн 0: Отправка в сеть + Аппаратное декодирование для AI
-        "v4l2src device=/dev/video0 ! video/x-h264,width=1280,height=720,framerate=30/1 ! h264parse config-interval=1 ! "
-        "tee name=t "
-        "t. ! queue ! rtspclientsink location=rtsp://127.0.0.1:8554/cam0 protocols=tcp "
-        "t. ! queue ! vah264dec ! video/x-raw,format=NV12 ! appsink drop=true max-buffers=1 sync=false",
+    std::vector<int> available_devices;
+    for (int dev_id : {0, 2, 4, 6}) {
+        if (std::filesystem::exists("/dev/video" + std::to_string(dev_id))) {
+            available_devices.push_back(dev_id);
+        } else {
+            std::cout << "[INFO] Камера /dev/video" << dev_id << " не найдена. Пропускаем.\n";
+        }
+    }
 
-        // Пайплайн 1 (для второй камеры /dev/video2)
-        "v4l2src device=/dev/video2 ! video/x-h264,width=1280,height=720,framerate=30/1 ! h264parse config-interval=1 ! "
-        "tee name=t "
-        "t. ! queue ! rtspclientsink location=rtsp://127.0.0.1:8554/cam2 protocols=tcp "
-        "t. ! queue ! vah264dec ! video/x-raw,format=NV12 ! appsink drop=true max-buffers=1 sync=false",
+    if (available_devices.empty()) {
+        std::cout << "Не найдено ни одной камеры! Система работает вхолостую.\n";
+    }
 
-        // Пайплайн 2 (для третьей камеры /dev/video4)
-      "v4l2src device=/dev/video4 ! video/x-h264,width=1280,height=720,framerate=30/1 ! h264parse config-interval=1 ! "
-      "tee name=t "
-      "t. ! queue ! rtspclientsink location=rtsp://127.0.0.1:8554/cam4 protocols=tcp "
-      "t. ! queue ! vah264dec ! video/x-raw,format=NV12 ! appsink drop=true max-buffers=1 sync=false",
+    auto build_pipeline = [](int dev_id) {
+        std::string device = "/dev/video" + std::to_string(dev_id);
+        std::string rtsp   = "rtsp://127.0.0.1:8554/cam" + std::to_string(dev_id);
 
-        // Пайплайн 3 (для четвёртной камеры /dev/video6)
-      "v4l2src device=/dev/video6 ! video/x-h264,width=1280,height=720,framerate=30/1 ! h264parse config-interval=1 ! "
-      "tee name=t "
-      "t. ! queue ! rtspclientsink location=rtsp://127.0.0.1:8554/cam6 protocols=tcp "
-      "t. ! queue ! vah264dec ! video/x-raw,format=NV12 ! appsink drop=true max-buffers=1 sync=false"
+        return "v4l2src device=" + device + " ! video/x-h264,width=1280,height=720,framerate=30/1 ! h264parse config-interval=1 ! "
+               "tee name=t "
+               "t. ! queue ! rtspclientsink location=" + rtsp + " protocols=tcp "
+               "t. ! queue ! vah264dec ! video/x-raw,format=NV12 ! appsink drop=true max-buffers=1 sync=false";
     };
 
-    for (size_t i = 0; i < pipelines.size(); ++i) {
-        auto cam = std::make_unique<VideoProducer>(i, pipelines[i], frame_queue);
+    int internal_cam_id = 0;
+    for (int dev_id : available_devices) {
+        std::cout << "[START] Подключение камеры /dev/video" << dev_id << " (ID: " << internal_cam_id << ")...\n";
+
+        std::string pipeline = build_pipeline(dev_id);
+
+        auto cam = std::make_unique<VideoProducer>(internal_cam_id, pipeline, frame_queue);
         cam->start();
         cameras.push_back(std::move(cam));
+
+        internal_cam_id++;
     }
 
     //надо столько воркеров сколько тянет параллельно обработчик
@@ -71,7 +76,7 @@ void PipelineBuilder::run()
 
     frontend_server.start();
 
-    std::println("Пайплайн запущен. Нажмите ctrl+c для остановки...");
+    std::cout << "Пайплайн запущен. Нажмите ctrl+c для остановки..." << std::endl;
 
 }
 

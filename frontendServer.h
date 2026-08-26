@@ -23,7 +23,7 @@ public:
     {
         auto ret = server_.set_mount_point("/", "./res");
         if (!ret) {
-            std::println(stderr, "Ошибка: Папка ./res не найдена! (Убедись, что запускаешь бинарник из правильного места)");
+            std::cerr << "Ошибка: Папка ./res не найдена! (Убедись, что запускаешь бинарник из правильного места)" << std::endl;
         }
 
         server_.Get("/", [](const httplib::Request&, httplib::Response& res) {
@@ -32,7 +32,7 @@ public:
 
         serverThread_ = std::thread([this]()
         {
-            std::println(stdout, "Web-сервер запущен на http://0.0.0.0:{}", port);
+            std::cout <<  "Web-сервер запущен на http://0.0.0.0:{}" << std::endl;
             server_.listen("0.0.0.0", port);
         });
     }

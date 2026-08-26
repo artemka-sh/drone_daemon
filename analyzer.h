@@ -5,7 +5,6 @@
 #ifndef DRONE_DAEMON_ANALYZER_H
 #define DRONE_DAEMON_ANALYZER_H
 #include <thread>
-
 #include "dataTypes.h"
 #include "threadSafeQueue.h"
 

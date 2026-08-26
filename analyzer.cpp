@@ -3,7 +3,7 @@
 //
 
 #include "analyzer.h"
-#include <print>
+#include <iostream>
 
 AIProcessor::AIProcessor(int worker_id, ThreadSafeQueue<FrameTask>& in_queue,
     ThreadSafeQueue<InferenceResult>& out_queue): worker_id_(worker_id), in_queue_(in_queue), out_queue_(out_queue)
@@ -23,7 +23,7 @@ void AIProcessor::stop()
 void AIProcessor::run()
 {
     // Здесь можно загрузить модель YOLO (AscendCL, NCNN, ONNX и т.д.)
-    std::println("AI Processor {} запущен", worker_id_);
+    std::cout << "AI Processor {} запущен: " << worker_id_ << std::endl;
 
     while (running_) {
         // Ждем кадр максимум 100 мс, затем проверяем флаг running_

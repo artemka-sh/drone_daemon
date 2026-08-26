@@ -4,7 +4,7 @@
 
 #include "cameraCapture.h"
 #include <opencv2/videoio.hpp>
-#include <print>
+#include <iostream>
 
 void VideoProducer::start()
 {
@@ -15,14 +15,13 @@ void VideoProducer::start()
 void VideoProducer::stop()
 {
     running_ = false;
-    // std::jthread сам дождется завершения в деструкторе
 }
 
 void VideoProducer::run()
 {
     cv::VideoCapture cap(pipeline_, cv::CAP_GSTREAMER);
     if (!cap.isOpened()) {
-        std::println("Ошибка: Камера {} не открылась", id_);
+        std::cout << "Ошибка: Камера {} не открылась" << id_ << std::endl;
         return;
     }
 

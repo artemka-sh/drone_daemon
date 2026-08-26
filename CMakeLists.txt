@@ -3,7 +3,7 @@ project(drone_daemon)
 
 find_package(OpenCV REQUIRED)
 
-set(CMAKE_CXX_STANDARD 26)
+set(CMAKE_CXX_STANDARD 20)
 
 set(HTTPLIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/cpp-httplib/httplib.h")
 if(NOT EXISTS "${HTTPLIB_PATH}")
