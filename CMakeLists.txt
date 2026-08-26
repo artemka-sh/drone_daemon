@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.4)
+cmake_minimum_required(VERSION 3.0...4.4)
 project(drone_daemon)
 
 find_package(OpenCV REQUIRED)
