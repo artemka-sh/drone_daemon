@@ -5,7 +5,6 @@
 #include "pipelineBuilder.h"
 #include "cameraCapture.h"
 #include "analyzer.h"
-#include <print>
 #include <chrono>
 #include <filesystem>
 
