@@ -1,9 +1,15 @@
 cmake_minimum_required(VERSION 3.0...4.4)
 project(drone_daemon)
 
-find_package(OpenCV REQUIRED)
-
 set(CMAKE_CXX_STANDARD 20)
+
+# Подключаем инструмент PkgConfig, чтобы заработала команда pkg_check_modules
+find_package(PkgConfig REQUIRED)
+
+# Ищем GStreamer через pkg-config
+pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-app-1.0)
+
+find_package(OpenCV REQUIRED)
 
 set(HTTPLIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/deps/cpp-httplib/httplib.h")
 if(NOT EXISTS "${HTTPLIB_PATH}")
@@ -22,8 +28,9 @@ add_executable(${PROJECT_NAME} main.cpp
         frontendServer.h
         deps/cpp-httplib/httplib.h)
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${OpenCV_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/deps/)
-target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS})
+target_include_directories(${PROJECT_NAME} PRIVATE ${OpenCV_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/deps/ ${GST_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${OpenCV_LIBS}  ${GST_LIBRARIES})
+
 execute_process(
         COMMAND ${CMAKE_COMMAND} -E create_symlink
         ${CMAKE_SOURCE_DIR}/res ${CMAKE_BINARY_DIR}/res

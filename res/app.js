@@ -1,9 +1,9 @@
 // Конфиг твоих 4 камер
 const AVAILABLE_CAMERAS = [
-    { id: 'cam0', name: 'Камера 0 (Основная)' },
-    { id: 'cam2', name: 'Камера 2 (Боковая)' },
-    { id: 'cam4', name: 'Камера 4 (Запасная)' },
-    { id: 'cam6', name: 'Камера 6 (Ультимативная)' },
+    { id: 'cam0', name: 'Камера 0' },
+    { id: 'cam2', name: 'Камера 2' },
+    { id: 'cam4', name: 'Камера 4' },
+    { id: 'cam6', name: 'Камера 6' },
 ];
 
 const MEDIAMTX_URL = `http://${window.location.hostname}:8889`;

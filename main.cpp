@@ -1,22 +1,12 @@
 #include "pipelineBuilder.h"
-#include <signal.h>
-
+#include <gst/gst.h>
+#include <future>
 static PipelineBuilder builder;
 
-int main()
+int main(int argc, char** argv)
 {
-    //регистрация прерывания и блокировка стандартного поведения
-    sigset_t set;
-    sigemptyset(&set);
-    sigaddset(&set, SIGINT);
-    sigprocmask(SIG_BLOCK, &set, nullptr);
-
-
+    gst_init(&argc, &argv);
     builder.run();
-
-    // ctrl + c для остановки
-    int sig;
-    sigwait(&set, &sig);
-
+    std::promise<void>().get_future().wait();
     return 0;
 }
