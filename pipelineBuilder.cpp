@@ -55,7 +55,6 @@ void PipelineBuilder::run()
                "t. ! queue ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! "
                    "appsink name=appsink0 drop=true max-buffers=1 sync=false";
     };
-        // ---- Ветка для ИИ (вернуть на плате вместе с AscendCL VDEC) ----
         // "v4l2src device=" + device + " ! video/x-h264,width=1280,height=720,framerate=30/1 ! "
         // "h264parse config-interval=1 ! tee name=t "
         // "t. ! queue ! rtph264pay pt=96 config-interval=1 ! udpsink host=127.0.0.1 port=" +
@@ -67,7 +66,7 @@ void PipelineBuilder::run()
     for (int dev_id : available_devices) {
         std::cout << "[START] Подключение камеры /dev/video" << dev_id << " (ID: " << internal_cam_id << ")...\n";
         std::string pipeline = build_pipeline(dev_id);
-        auto cam = std::make_unique<VideoProducer>(internal_cam_id, pipeline, frame_queue);
+        auto cam = std::make_unique<VideoProducer>(dev_id, pipeline, frame_queue);
         cam->start();
         cameras.push_back(std::move(cam));
         internal_cam_id++;
@@ -85,8 +84,7 @@ void PipelineBuilder::run()
         while (server_running) {
             auto res_opt = result_queue.pop_with_timeout(std::chrono::milliseconds(100));
             if (res_opt) {
-                // TODO: сюда отдать ResultTask на фронт (JSON по WS/SSE) —
-                // отдельная задача, скажи, если нужно её тоже сделать.
+                frontend_server.update_boxes(*res_opt);
             }
         }
     });

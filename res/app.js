@@ -1,4 +1,3 @@
-// Конфиг твоих 4 камер
 const AVAILABLE_CAMERAS = [
     { id: 'cam0', name: 'Камера 0' },
     { id: 'cam2', name: 'Камера 2' },
@@ -14,24 +13,18 @@ const togglesContainer = document.getElementById('camera-toggles');
 const modal = document.getElementById('fullscreen-modal');
 const modalContent = document.getElementById('fullscreen-container');
 
-// ========================================================
-// УМНЫЙ WHEP КЛИЕНТ (Без внешних зависимостей)
-// ========================================================
 class NativeWHEPClient {
     constructor(url, videoElement) {
         this.pc = new RTCPeerConnection();
-        this.resourceURL = null; // Ссылка на удаление сессии
+        this.resourceURL = null;
         this.videoElement = videoElement;
 
         this.pc.addTransceiver('video', { direction: 'recvonly' });
 
         this.pc.ontrack = (event) => {
-            console.log(`[WHEP] 🟢 Поток получен для ${url}!`);
             this.videoElement.srcObject = event.streams[0];
-
-            // ХАК №1: Пробуждаем плеер
             this.videoElement.onloadedmetadata = () => {
-                this.videoElement.play().catch(e => console.warn("Автоплей заблокирован:", e));
+                this.videoElement.play().catch(() => {});
             };
         };
 
@@ -43,9 +36,7 @@ class NativeWHEPClient {
                 body: this.pc.localDescription.sdp
             }))
             .then(res => {
-                if (!res.ok) throw new Error(`HTTP Ошибка: ${res.status}`);
-
-                // Сохраняем ссылку для закрытия WebRTC сессии
+                if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
                 const location = res.headers.get('location');
                 if (location) {
                     this.resourceURL = location.startsWith('http') ? location : new URL(location, url).toString();
@@ -53,8 +44,7 @@ class NativeWHEPClient {
                 return res.text();
             })
             .then(sdp => this.pc.setRemoteDescription({ type: 'answer', sdp: sdp }))
-            .catch(err => {
-                console.error(`[WHEP] ❌ Ошибка соединения (${url}):`, err);
+            .catch(() => {
                 this.videoElement.style.border = "2px solid red";
             });
     }
@@ -66,7 +56,6 @@ class NativeWHEPClient {
         }
     }
 }
-// ========================================================
 
 function init() {
     AVAILABLE_CAMERAS.forEach(cam => {
@@ -86,6 +75,8 @@ function init() {
 
         startCamera(cam);
     });
+
+    setInterval(fetchBoxes, 100);
 }
 
 function handleToggle(cam, isChecked) {
@@ -97,16 +88,13 @@ function handleToggle(cam, isChecked) {
 }
 
 function startCamera(cam) {
-    if (activeReaders[cam.id]) return; // Защита от дублей
-
-    console.log(`[${cam.id}] Запуск камеры...`);
+    if (activeReaders[cam.id]) return;
 
     const wrapper = document.createElement('div');
     wrapper.className = 'cam-wrapper';
     wrapper.id = `wrapper-${cam.id}`;
 
     const video = document.createElement('video');
-    // ХАК №2: Обход политик браузера
     video.setAttribute('autoplay', '');
     video.setAttribute('muted', '');
     video.setAttribute('playsinline', '');
@@ -114,53 +102,113 @@ function startCamera(cam) {
     video.muted = true;
     video.controls = false;
 
-    // ХАК №3: Принудительный рендер
+    const canvas = document.createElement('canvas');
+    canvas.className = 'ai-canvas';
+
+    video.addEventListener('loadedmetadata', () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+    });
+
     video.addEventListener('loadeddata', () => {
         video.play().catch(() => {});
     });
 
-    video.addEventListener('dblclick', () => openFullscreen(video, cam.name));
+    video.addEventListener('dblclick', () => openFullscreen(video, canvas, cam.name));
 
     const nameTag = document.createElement('div');
     nameTag.className = 'cam-name';
     nameTag.innerText = cam.name;
 
     wrapper.appendChild(video);
+    wrapper.appendChild(canvas);
     wrapper.appendChild(nameTag);
     grid.appendChild(wrapper);
 
     const whepUrl = `${MEDIAMTX_URL}/${cam.id}/whep`;
     const reader = new NativeWHEPClient(whepUrl, video);
 
-    activeReaders[cam.id] = { reader, wrapper };
+    activeReaders[cam.id] = { reader, wrapper, canvas, video };
 }
 
 function stopCamera(camId) {
     const session = activeReaders[camId];
     if (session) {
-        console.log(`[${camId}] Отключение...`);
         if (session.reader) session.reader.close();
         if (session.wrapper) session.wrapper.remove();
         delete activeReaders[camId];
     }
 }
 
-// ---- Полноэкранный режим ----
-function openFullscreen(sourceVideo, camName) {
+async function fetchBoxes() {
+    try {
+        const response = await fetch('/api/boxes');
+        const data = await response.json();
+
+        for (const [camIntId, boxes] of Object.entries(data)) {
+            const camIdStr = `cam${camIntId}`;
+            const session = activeReaders[camIdStr];
+
+            if (session && session.canvas && session.canvas.width > 0) {
+                const ctx = session.canvas.getContext('2d');
+                const w = session.canvas.width;
+                const h = session.canvas.height;
+
+                ctx.clearRect(0, 0, w, h);
+
+                boxes.forEach(box => {
+                    const bw = box.x2 - box.x1;
+                    const bh = box.y2 - box.y1;
+
+                    ctx.strokeStyle = '#00ff00';
+                    ctx.lineWidth = Math.max(2, w / 300);
+                    ctx.strokeRect(box.x1, box.y1, bw, bh);
+
+                    ctx.fillStyle = '#00ff00';
+                    ctx.font = '16px Arial';
+                    const textWidth = ctx.measureText(box.label).width;
+                    ctx.fillRect(box.x1, box.y1 - 22, textWidth + 10, 22);
+
+                    ctx.fillStyle = '#000000';
+                    ctx.fillText(box.label, box.x1 + 5, box.y1 - 6);
+                });
+            }
+        }
+    } catch (e) {}
+}
+
+function openFullscreen(sourceVideo, sourceCanvas, camName) {
     modalContent.innerHTML = '';
+
     const fsVideo = document.createElement('video');
     fsVideo.srcObject = sourceVideo.srcObject;
     fsVideo.autoplay = true;
     fsVideo.muted = true;
-    fsVideo.controls = true;
+    fsVideo.controls = false;
+
+    const fsCanvas = document.createElement('canvas');
+    fsCanvas.className = 'ai-canvas';
+    fsCanvas.width = sourceCanvas.width;
+    fsCanvas.height = sourceCanvas.height;
 
     const nameTag = document.createElement('div');
     nameTag.className = 'cam-name';
     nameTag.innerText = `${camName} (Фокус)`;
 
     modalContent.appendChild(fsVideo);
+    modalContent.appendChild(fsCanvas);
     modalContent.appendChild(nameTag);
     modal.classList.remove('hidden');
+
+    const syncInterval = setInterval(() => {
+        if(modal.classList.contains('hidden')) {
+            clearInterval(syncInterval);
+            return;
+        }
+        const ctx = fsCanvas.getContext('2d');
+        ctx.clearRect(0, 0, fsCanvas.width, fsCanvas.height);
+        ctx.drawImage(sourceCanvas, 0, 0);
+    }, 50);
 }
 
 document.getElementById('close-modal').addEventListener('click', () => {
@@ -168,7 +216,6 @@ document.getElementById('close-modal').addEventListener('click', () => {
     modalContent.innerHTML = '';
 });
 
-// ---- Управление скрытием боковой панели ----
 const sidebar = document.getElementById('sidebar');
 const toggleBtn = document.getElementById('toggle-sidebar');
 
@@ -176,5 +223,4 @@ toggleBtn.addEventListener('click', () => {
     sidebar.classList.toggle('collapsed');
 });
 
-// Старт
 window.addEventListener('load', init);
