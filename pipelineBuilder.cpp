@@ -74,11 +74,11 @@ void PipelineBuilder::run()
     }
 
     // ЭТАП 2: AI-воркеры разбирают frame_queue и кладут результаты в result_queue.
-    for (uint i = 0; i < m_threads_of_workers; ++i) {
-        auto ai = std::make_unique<AIProcessor>(i, frame_queue, result_queue);
+    // for (uint i = 0; i < m_threads_of_workers; ++i) {
+        auto ai = std::make_unique<AIProcessor>(0, frame_queue, result_queue);
         ai->start();
         ai_workers.push_back(std::move(ai));
-    }
+    // }
 
     server_running = true;
     network_server = std::jthread([this]() {

@@ -19,7 +19,7 @@ class AIProcessor;
 
 class PipelineBuilder
 {
-    uint m_threads_of_workers = 2;
+    uint m_threads_of_workers = 1;
     std::atomic<bool> server_running{true};
     ThreadSafeQueue<FrameTask> frame_queue{10};
     ThreadSafeQueue<ResultTask> result_queue{100};
