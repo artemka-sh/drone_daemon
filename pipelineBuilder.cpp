@@ -3,7 +3,7 @@
 //
 #include "pipelineBuilder.h"
 #include "cameraCapture.h"
-#include "analyzer.h"
+#include "aiProcessor.h"
 #include <chrono>
 #include <filesystem>
 
@@ -32,6 +32,12 @@ void PipelineBuilder::run()
     // RTSP RECORD используем чистый RTP-пуш — он требует только rtph264pay/udpsink,
     // которые есть почти в любой сборке GStreamer (в отличие от отдельного
     // модуля gst-rtsp-server).
+    //
+    // ЭТАП 2 (текущий): appsink0 теперь ещё и наполняет frame_queue, откуда
+    // кадры разбирают AI-воркеры (см. ниже). Разрешение appsink0 (640x480)
+    // ниже, чем вход модели (640x640) — letterbox в Yolo12Detect::Preprocess
+    // это компенсирует, но для лучшей точности разрешение стоит поднять
+    // (см. закомментированную ai-ветку ниже как ориентир).
     auto build_pipeline = [](int dev_id) {
         std::string device = "/dev/video" + std::to_string(dev_id);
         int rtp_port = 5000 + dev_id;
@@ -67,27 +73,26 @@ void PipelineBuilder::run()
         internal_cam_id++;
     }
 
-    // ЭТАП 1: воркеры ИИ пока не поднимаем.
-    /*
-    for (int i = 0; i < m_threads_of_workers; ++i) {
+    // ЭТАП 2: AI-воркеры разбирают frame_queue и кладут результаты в result_queue.
+    for (uint i = 0; i < m_threads_of_workers; ++i) {
         auto ai = std::make_unique<AIProcessor>(i, frame_queue, result_queue);
         ai->start();
         ai_workers.push_back(std::move(ai));
     }
-    */
 
     server_running = true;
     network_server = std::jthread([this]() {
         while (server_running) {
             auto res_opt = result_queue.pop_with_timeout(std::chrono::milliseconds(100));
             if (res_opt) {
-                // Здесь будет отправка JSON через сеть
+                // TODO: сюда отдать ResultTask на фронт (JSON по WS/SSE) —
+                // отдельная задача, скажи, если нужно её тоже сделать.
             }
         }
     });
 
     frontend_server.start();
-    std::cout << "Пайплайн запущен (RTP/UDP -> MediaMTX, ИИ отключён). Ctrl+C для остановки..." << std::endl;
+    std::cout << "Пайплайн запущен (RTP/UDP -> MediaMTX, ИИ включён). Ctrl+C для остановки..." << std::endl;
 }
 
 void PipelineBuilder::cleanup()

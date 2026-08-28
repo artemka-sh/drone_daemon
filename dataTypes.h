@@ -1,26 +1,30 @@
-//
-// Created by arm64 on 21.08.2026.
-//
-
 #ifndef DRONE_DAEMON_DATATYPES_H
 #define DRONE_DAEMON_DATATYPES_H
-#include <opencv2/core/mat.hpp>
 
+#include <opencv2/opencv.hpp>
+#include <string>
+#include <vector>
+#include <cstdint>
 
 struct FrameTask {
-    int camera_id;
-    cv::Mat frame; // Здесь будет сырой NV12 или BGR
+    int cam_id;
+    cv::Mat frame;
 };
 
-struct DetectionBox {
-    int x, y, width, height;
-    std::string object_class;
+struct Point {
+    uint32_t x;
+    uint32_t y;
 };
 
-struct InferenceResult {
-    int camera_id;
-    std::vector<DetectionBox> detections;
+struct DetectionResult {
+    Point lt;
+    Point rb;
+    std::string result_text;
 };
 
+struct ResultTask {
+    int cam_id;
+    std::vector<DetectionResult> bboxes;
+};
 
-#endif //DRONE_DAEMON_DATATYPES_H
+#endif // DRONE_DAEMON_DATATYPES_H

@@ -22,7 +22,7 @@ class PipelineBuilder
     uint m_threads_of_workers = 2;
     std::atomic<bool> server_running{true};
     ThreadSafeQueue<FrameTask> frame_queue{10};
-    ThreadSafeQueue<InferenceResult> result_queue{100};// Метаданные легкие, лимит больше
+    ThreadSafeQueue<ResultTask> result_queue{100};
     std::vector<std::unique_ptr<VideoProducer>> cameras;
     std::vector<std::unique_ptr<AIProcessor>> ai_workers;
     FrontendServer frontend_server;
