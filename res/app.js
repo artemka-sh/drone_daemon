@@ -15,45 +15,79 @@ const modalContent = document.getElementById('fullscreen-container');
 
 class NativeWHEPClient {
     constructor(url, videoElement) {
-        this.pc = new RTCPeerConnection();
-        this.resourceURL = null;
+        this.url = url;
         this.videoElement = videoElement;
+        this.pc = null;
+        this.lastFrames = -1;
+        this.isReconnecting = false;
+        this.watchdogTimer = setInterval(() => this.checkStream(), 3000);
+        this.connect();
+    }
 
+    connect() {
+        this.isReconnecting = true;
+        this.videoElement.style.border = "2px solid red";
+        this.lastFrames = -1;
+
+        if (this.pc) {
+            this.pc.close();
+        }
+        this.videoElement.srcObject = null;
+
+        this.pc = new RTCPeerConnection();
         this.pc.addTransceiver('video', { direction: 'recvonly' });
 
         this.pc.ontrack = (event) => {
             this.videoElement.srcObject = event.streams[0];
-            this.videoElement.onloadedmetadata = () => {
-                this.videoElement.play().catch(() => {});
-            };
+            this.videoElement.play().catch(() => {});
+            this.videoElement.style.border = "none";
+            this.isReconnecting = false;
+        };
+
+        this.pc.onconnectionstatechange = () => {
+            if (this.pc.connectionState === 'failed' || this.pc.connectionState === 'disconnected') {
+                if (!this.isReconnecting) {
+                    this.connect();
+                }
+            }
         };
 
         this.pc.createOffer()
             .then(offer => this.pc.setLocalDescription(offer))
-            .then(() => fetch(url, {
+            .then(() => fetch(this.url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/sdp' },
                 body: this.pc.localDescription.sdp
             }))
             .then(res => {
-                if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-                const location = res.headers.get('location');
-                if (location) {
-                    this.resourceURL = location.startsWith('http') ? location : new URL(location, url).toString();
-                }
+                if (!res.ok) throw new Error();
                 return res.text();
             })
             .then(sdp => this.pc.setRemoteDescription({ type: 'answer', sdp: sdp }))
             .catch(() => {
-                this.videoElement.style.border = "2px solid red";
+                this.isReconnecting = false;
             });
     }
 
-    close() {
-        this.pc.close();
-        if (this.resourceURL) {
-            fetch(this.resourceURL, { method: 'DELETE' }).catch(() => {});
-        }
+    checkStream() {
+        if (this.isReconnecting || !this.pc) return;
+
+        this.pc.getStats(null).then(stats => {
+            let currentFrames = 0;
+            stats.forEach(report => {
+                if (report.type === 'inbound-rtp' && report.kind === 'video') {
+                    currentFrames = report.framesDecoded || report.packetsReceived || 0;
+                }
+            });
+
+            if (this.lastFrames !== -1 && currentFrames === this.lastFrames) {
+                this.connect();
+            }
+
+            this.lastFrames = currentFrames;
+        }).catch(() => {
+            this.connect();
+        });
     }
 }
 
