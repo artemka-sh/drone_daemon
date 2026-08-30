@@ -6,26 +6,9 @@
 using namespace std;
 
 namespace {
-// Те же 80 классов COCO, что и в object_detect.cpp. Если модель обучена
-// на своих классах — замени список (и не забудь, что numClasses в
-// Postprocess должен совпадать с nc, на котором обучалась модель).
-const std::vector<std::string> cocoLabels = { "person", "bicycle", "car", "motorbike",
-"aeroplane","bus", "train", "truck", "boat",
-"traffic light", "fire hydrant", "stop sign", "parking meter",
-"bench", "bird", "cat", "dog", "horse",
-"sheep", "cow", "elephant", "bear", "zebra",
-"giraffe", "backpack", "umbrella", "handbag","tie",
-"suitcase", "frisbee", "skis", "snowboard", "sports ball",
-"kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
-"tennis racket", "bottle", "wine glass", "cup",
-"fork", "knife", "spoon", "bowl", "banana",
-"apple", "sandwich", "orange", "broccoli", "carrot",
-"hot dog", "pizza", "donut", "cake", "chair",
-"sofa", "potted plant", "bed", "dining table", "toilet",
-"TV monitor", "laptop", "mouse", "remote", "keyboard",
-"cell phone", "microwave", "oven", "toaster", "sink",
-"refrigerator", "book", "clock", "vase","scissors",
-"teddy bear", "hair drier", "toothbrush" };
+
+    const std::vector<std::string> cocoLabels = { "Солдат", "Танк", "Грузовик", "гражданский автомобиль",
+    "Артилерия", "Самолёт", "Военный корабль" };
 
 struct RawDet {
     float x1, y1, x2, y2, score;
@@ -74,7 +57,7 @@ Yolo12Detect::~Yolo12Detect() {
 }
 
 Result Yolo12Detect::InitResource() {
-    const char* aclConfigPath = "../src/acl.json";
+    const char* aclConfigPath = nullptr;
     aclError ret = aclInit(aclConfigPath);
     if (ret != ACL_ERROR_NONE) {
         ERROR_LOG("Acl init failed");
@@ -105,7 +88,7 @@ Result Yolo12Detect::CreateModelInputDataset() {
     if (aclRet != ACL_ERROR_NONE) return FAILED;
 
     // У модели один вход "images". Нормализация (0..1) и BGR->RGB сделаны
-    // через AIPP прямо в .om (см. aipp_yolo12.cfg) — сюда льём letterboxed
+    // через AIPP прямо в .om (см. aipp_yolo12.cfg) — сюда letterboxed
     // uint8 BGR картинку как есть, без ручной конвертации на CPU.
     Result ret = model_.CreateInput(imageDataBuf_, imageDataSize_);
     if (ret != SUCCESS) return FAILED;
@@ -126,9 +109,7 @@ Result Yolo12Detect::Preprocess(cv::Mat& frame) {
     origHeight_ = frame.rows;
 
     // letterbox: сохраняем пропорции, добиваем серым (114,114,114) до
-    // modelWidth_ x modelHeight_. Важно для точности — YOLO12 обучался
-    // именно с такой геометрией входа (в отличие от простого squish-resize,
-    // который был у старого ObjectDetect под YOLOv3).
+    // modelWidth_ x modelHeight_.
     scale_ = std::min((float)modelWidth_ / origWidth_, (float)modelHeight_ / origHeight_);
     int newW = (int)std::round(origWidth_ * scale_);
     int newH = (int)std::round(origHeight_ * scale_);
@@ -142,8 +123,7 @@ Result Yolo12Detect::Preprocess(cv::Mat& frame) {
     resized.copyTo(letterboxed(cv::Rect(padLeft_, padTop_, newW, newH)));
     if (!letterboxed.isContinuous()) letterboxed = letterboxed.clone();
 
-    aclrtMemcpyKind policy = (runMode_ == ACL_HOST) ? ACL_MEMCPY_HOST_TO_DEVICE : ACL_MEMCPY_DEVICE_TO_DEVICE;
-    aclError ret = aclrtMemcpy(imageDataBuf_, imageDataSize_, letterboxed.ptr<uint8_t>(), imageDataSize_, policy);
+    aclError ret = aclrtMemcpy(imageDataBuf_, imageDataSize_, letterboxed.ptr<uint8_t>(), imageDataSize_, ACL_MEMCPY_HOST_TO_DEVICE);
     if (ret != ACL_ERROR_NONE) return FAILED;
 
     return SUCCESS;
@@ -178,13 +158,35 @@ void* Yolo12Detect::GetInferenceOutputItem(uint32_t& itemDataSize, aclmdlDataset
 }
 
 Result Yolo12Detect::Postprocess(aclmdlDataset* modelOutput, std::vector<DetectionResult>& out_bboxes) {
-    uint32_t dataSize = 0;
-    float* raw = (float*)GetInferenceOutputItem(dataSize, modelOutput, 0);
-    if (raw == nullptr) return FAILED;
+uint32_t dataSize = 0;
+    void* raw_void = GetInferenceOutputItem(dataSize, modelOutput, 0);
+    if (raw_void == nullptr) return FAILED;
 
-    const size_t numClasses = cocoLabels.size(); // поменяй, если классы свои
-    const size_t channels = 4 + numClasses;
-    const size_t numAnchors = dataSize / sizeof(float) / channels;
+    const size_t numClasses = cocoLabels.size(); // 80
+    const size_t channels = 4 + numClasses;      // 84
+    const size_t expectedAnchors = 8400;         // Для разрешения 640x640
+
+    std::vector<float> converted_data;
+    float* raw = nullptr;
+
+    // Проверяем реальный тип данных по размеру буфера
+    if (dataSize == channels * expectedAnchors * sizeof(float)) {
+        // Модель выдала честный FP32
+        raw = (float*)raw_void;
+    } else if (dataSize == channels * expectedAnchors * sizeof(aclFloat16)) {
+        // ATC скомпилировал выход в FP16! Конвертируем в FP32 силами процессора
+        converted_data.resize(channels * expectedAnchors);
+        aclFloat16* raw_fp16 = (aclFloat16*)raw_void;
+        for (size_t i = 0; i < converted_data.size(); ++i) {
+            converted_data[i] = aclFloat16ToFloat(raw_fp16[i]);
+        }
+        raw = converted_data.data();
+    } else {
+        ERROR_LOG("Unexpected tensor size: %u bytes", dataSize);
+        return FAILED;
+    }
+
+    const size_t numAnchors = expectedAnchors;
 
     std::vector<RawDet> candidates;
     candidates.reserve(256);
@@ -239,7 +241,7 @@ Result Yolo12Detect::Postprocess(aclmdlDataset* modelOutput, std::vector<Detecti
     }
 
     if (runMode_ == ACL_HOST) {
-        delete[]((uint8_t*)raw);
+        delete[]((uint8_t*)raw_void);
     }
     return SUCCESS;
 }
@@ -248,5 +250,4 @@ void Yolo12Detect::DestroyResource() {
     if (imageDataBuf_) aclrtFree(imageDataBuf_);
     model_.DestroyResource();
     aclrtResetDevice(deviceId_);
-    aclFinalize();
 }

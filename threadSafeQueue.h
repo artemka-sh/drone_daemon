@@ -23,7 +23,6 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         if (queue_.size() >= maxSize_) {
             queue_.pop(); // Дропаем самый старый кадр
-            std::cerr << "Внимание: Очередь переполнена, кадр отброшен.\n";
         }
         queue_.push(std::move(item));
         cond_.notify_one();

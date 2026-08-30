@@ -78,6 +78,7 @@ void PipelineBuilder::run()
         ai->start();
         ai_workers.push_back(std::move(ai));
     // }
+    // воркер должен быть один, потому как он физически один
 
     server_running = true;
     network_server = std::jthread([this]() {
