@@ -2,7 +2,7 @@ const AVAILABLE_CAMERAS = [
     { id: 'cam0', name: 'Камера 0' },
     { id: 'cam2', name: 'Камера 2' },
     { id: 'cam4', name: 'Камера 4' },
-    { id: 'cam6', name: 'Камера 6' },
+
 ];
 
 const MEDIAMTX_URL = `http://${window.location.hostname}:8889`;

@@ -16,15 +16,14 @@ PipelineBuilder::~PipelineBuilder()
 void PipelineBuilder::run()
 {
     std::vector<int> available_devices;
-    for (int dev_id : {0, 2, 4, 6}) {
-        if (std::filesystem::exists("/dev/video" + std::to_string(dev_id))) {
-            available_devices.push_back(dev_id);
-        } else {
-            std::cout << "[INFO] Камера /dev/video" << dev_id << " не найдена. Пропускаем.\n";
-        }
+    for (int dev_id : {0, 2, 4}) {
+        if (!std::filesystem::exists("/dev/video" + std::to_string(dev_id)))
+            std::cout << "[INFO] Камера /dev/video" << dev_id << " не найдена, но всё равно добавлена.\n";
+
+        available_devices.push_back(dev_id);
     }
     if (available_devices.empty()) {
-        std::cout << "Не найдено ни одной камеры! Система работает вхолостую.\n";
+        std::cout << "Не найдено ни одной камеры, на момент запуска!\n";
     }
 
     // ЭТАП 1: только захват + доставка сырого H264 в MediaMTX по RTP/UDP.
