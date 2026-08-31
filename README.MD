@@ -121,3 +121,5 @@ Install the required system packages using dnf or yum:
         ./drone_daemon
 
    Веб-интерфейс доступен по адресу `http://<IP_ПЛАТЫ>:8080`
+
+![pic](https://raw.githubusercontent.com/artemka-sh/drone_daemon/refs/heads/master/result.jpg)
