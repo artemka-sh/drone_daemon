@@ -123,3 +123,5 @@ Install the required system packages using dnf or yum:
    Веб-интерфейс доступен по адресу `http://<IP_ПЛАТЫ>:8080`
 
 ![pic](https://raw.githubusercontent.com/artemka-sh/drone_daemon/refs/heads/master/result.jpg)
+
+(поиск платы в сети: ping -4 orangepiaipro-20t.local)
